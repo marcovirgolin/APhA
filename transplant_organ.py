@@ -10,6 +10,7 @@ from shapely.geometry.polygon import Polygon
 import vtk
 import scipy
 import scipy.ndimage
+import cv2
 
 """
 We assume RL-AP-IS orientation:
@@ -26,13 +27,13 @@ CT_IMG_UID = 'CT Image Storage'
 arg = sys.argv[1]
 if arg == '-h' or arg == '--help' or arg == '-help':
 	print 'Implants the organ of donor into the body of receiver. An RTSTRUCT DICOM file is returned.'
-	print 'Args: refpoint_receiver_RL,AP,IS refpoint_donor_RL,AP,IS predicted_struct_displacement_RL,AP,IS CT_receiver_dir CT_donor_dir RTSTRUCT_receiver RTSTRUCT_donor organ_name out_dir'
+	print 'Args: refpoint_receiver_RL,AP,IS refpoint_donor_RL,AP,IS struct_displacement_RL,AP,IS CT_receiver_dir CT_donor_dir RTSTRUCT_receiver RTSTRUCT_donor organ_name out_dir'
 	print 'E.g.: -12.0,203.0,1020.0 33.0,220.0,110.0 55.0,-10.0,25.5 path/to/receiver/CTdir/ path/to/donor/CTdir/ path/to/receiver/RTSTRUCTFile path/to/donor/RTSTRUCTFile Liver path/to/outputdir/'
 	exit()
 
 coords_ref_rec = sys.argv[1]
 coords_ref_donor = sys.argv[2]
-coords_struct_prediction = sys.argv[3]
+coords_struct_displacement = sys.argv[3]
 ctdir_rec = sys.argv[4]
 ctdir_rec = os.path.join(ctdir_rec, '')
 ctdir_donor = sys.argv[5]
@@ -45,7 +46,7 @@ out_dir = os.path.join(out_dir, '')
 
 coords_ref_rec = np.array(coords_ref_rec.split(',')).astype(np.float)
 coords_ref_donor = np.array(coords_ref_donor.split(',')).astype(np.float)
-coords_struct_prediction = np.array(coords_struct_prediction.split(',')).astype(np.float)
+coords_struct_displacement = np.array(coords_struct_displacement.split(',')).astype(np.float)
 
 
 
@@ -392,11 +393,9 @@ print 'Translating',organ_name,'of donor...',
 vertices = vtk.vtkCellArray()
 points = vtk.vtkPoints()
 
-# Note that STRUCTS are saved as LR instead of RL
 contour_donor_np = []
 for cs in contour_donor:
 	conv = convertContourDataToNPArray(cs.ContourData)
-	conv[:,0] = -conv[:,0]
 	contour_donor_np.append(conv)		
 	for cc in conv:
 		id = points.InsertNextPoint(cc)
@@ -409,10 +408,9 @@ vtkPolyStruct.SetPoints(points)
 vtkPolyStruct.SetVerts(vertices)
 com_contour_donor = computeCenterOfMass(vtkPolyStruct)
 
-
 contour_donor_np_translated = []
 for cs in contour_donor_np:
-	contour_donor_np_translated.append(cs - com_contour_donor + coords_ref_rec + coords_struct_prediction)
+	contour_donor_np_translated.append( cs - com_contour_donor + coords_ref_rec + coords_struct_displacement )
 contour_donor_np_translated = np.array(contour_donor_np_translated)
 
 
@@ -470,14 +468,14 @@ for i_o_slic in range(0,len(contour_donor_np_translated)):
 	# Prepare voxel-indices version of the organ slice for the receiver CT
 	pix_o_don_slic_translated = []
 	pix_o_don_slic = []
-	o_don_slic = o_don_slic * [-1,1,1]
-	o_don_slic_translated = o_don_slic_translated * [-1,1,1]
+	
 	for i in range(0, len(o_don_slic_translated[:,:-1])):
 		xy = o_don_slic[:,:-1][i]
 		xy_t = o_don_slic_translated[:,:-1][i]
 		pix = np.round( (xy - xyoffset_donor) / pixspac_donor[:-1] ).astype(int)
 		pix_t = np.round( (xy_t - xyoffset_rec) / pixspac_rec[:-1] ).astype(int)
-		pix_o_don_slic.append( [pix[1],pix[0]] )
+		# the following inversions between x and y is due to how pixeldata is stored
+		pix_o_don_slic.append( [pix[1],pix[0]] )	
 		pix_o_don_slic_translated.append([pix_t[1],pix_t[0]])
 
 	pix_o_don_slic = np.array(pix_o_don_slic)
@@ -499,16 +497,18 @@ for i_o_slic in range(0,len(contour_donor_np_translated)):
 			if poly_o_don_slic.contains(Point(x,y)):
 				hu_vals[i][j] = ct_don_slic[x][y]
 				vals.append(ct_don_slic[x][y])
+	medianHU = np.median(vals)
+	where_are_NaNs = np.isnan(hu_vals)
+	hu_vals[where_are_NaNs] = medianHU
+	hu_vals = cv2.resize(hu_vals, dsize=(maxpix_o_don_slic_translated[1]-minpix_o_don_slic_translated[1], maxpix_o_don_slic_translated[0]-minpix_o_don_slic_translated[0]))
 
-	meanHU = np.mean(vals)
-	
 	# Overwrite HU values of voxels
 	for i, x in enumerate( range( minpix_o_don_slic_translated[0] , maxpix_o_don_slic_translated[0]) ):	
 		for j, y in enumerate( range(minpix_o_don_slic_translated[1] , maxpix_o_don_slic_translated[1]) ):
 			if poly_o_don_slic_translated.contains(Point(x,y)):
 				hu_to_write = hu_vals[i][j]
 				if np.isnan(hu_to_write):
-					hu_to_write = meanHU
+					hu_to_write = medianHU
 				ct_rec_slic[x][y] = hu_to_write
 				prev_slic_contour_application.append( (x,y,hu_to_write) )
 			
@@ -527,8 +527,7 @@ for i in range(0,len(ct_rec)):
 
 rt_receiver_dicom = pydicom.read_file(rt_receiver)
 
-last_translation = ( coords_ref_rec + coords_struct_prediction - com_contour_donor )
-last_translation[0] = -last_translation[0]
+last_translation = ( coords_ref_rec + coords_struct_displacement - com_contour_donor )
 
 new_rt_receiver = replaceRTDicomContour( rt_receiver_dicom, rt_donor_dicom, organ_name, last_translation )
 new_rt_receiver.save_as(out_dir+'RT_replaced.dcm')
@@ -552,7 +551,6 @@ points = vtk.vtkPoints()
 contour_donor_np = []
 for cs in contour_donor:
 	conv = convertContourDataToNPArray(cs.ContourData)
-	conv[:,0] = -conv[:,0]
 	contour_donor_np.append(conv)		
 	for cc in conv:
 		id = points.InsertNextPoint(cc)
@@ -565,7 +563,7 @@ vtkPolyStruct.SetPoints(points)
 vtkPolyStruct.SetVerts(vertices)
 com_contour_donor = computeCenterOfMass(vtkPolyStruct)
 
-print com_contour_donor
+print 'obtained:',np.round(com_contour_donor,2), 'vs expected:', coords_ref_rec + coords_struct_displacement
 
 print 'OK'
 """
