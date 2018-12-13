@@ -26,8 +26,8 @@ CT_IMG_UID = 'CT Image Storage'
 arg = sys.argv[1]
 if arg == '-h' or arg == '--help' or arg == '-help':
 	print 'Implants the organ of donor into the body of receiver. An RTSTRUCT DICOM file is returned.'
-	print 'Args: refpoint_receiver_RL,AP,IS refpoint_donor_RL,AP,IS predicted_struct_RL,AP,IS CT_receiver_dir CT_donor_dir RTSTRUCT_receiver RTSTRUCT_donor organ_name out_dir'
-	print 'E.g.: -12.0,203.0,1020.0 33.0,220.0,110.0 55.0,257.0,1104.0 path/to/receiver/CTdir/ path/to/donor/CTdir/ path/to/receiver/RTSTRUCTFile path/to/donor/RTSTRUCTFile Liver path/to/outputdir/'
+	print 'Args: refpoint_receiver_RL,AP,IS refpoint_donor_RL,AP,IS predicted_struct_displacement_RL,AP,IS CT_receiver_dir CT_donor_dir RTSTRUCT_receiver RTSTRUCT_donor organ_name out_dir'
+	print 'E.g.: -12.0,203.0,1020.0 33.0,220.0,110.0 55.0,-10.0,25.5 path/to/receiver/CTdir/ path/to/donor/CTdir/ path/to/receiver/RTSTRUCTFile path/to/donor/RTSTRUCTFile Liver path/to/outputdir/'
 	exit()
 
 coords_ref_rec = sys.argv[1]
