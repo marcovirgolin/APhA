@@ -2,7 +2,10 @@
 Code to automatically assemble phantoms from DICOM CT scans and RT STRUCT files.
 
 If you find this code helpful, please consider citing our work:
-[1] *Machine learning for automatic construction of pseudo-realisticpediatric abdominal phantoms*. Marco Virgolin, Ziyuan Wang, Tanja Alderliesten and Peter A.N. Bosman.
+ 
+```
+[1] "Machine learning for automatic construction of pseudo-realisticpediatric abdominal phantoms". Marco Virgolin, Ziyuan Wang, Tanja Alderliesten and Peter A.N. Bosman.
+```
 
 ## Details
 This code is an anonymized version of the one actually used to generate phantoms for [1]. 
