@@ -4,7 +4,16 @@ Code to automatically assemble phantoms from DICOM CT scans and RT STRUCT files 
 If you find this code helpful, please consider citing our work:
  
 ```
-[1] "Machine learning for automatic construction of pseudo-realistic pediatric abdominal phantoms". Marco Virgolin, Ziyuan Wang, Tanja Alderliesten and Peter A.N. Bosman (currently submitted to SPIE journal on Medical Imaging).
+@article{virgolin2020machine,
+  title={Machine learning for the prediction of pseudorealistic pediatric abdominal phantoms for radiation dose reconstruction},
+  author={Virgolin, Marco and Wang, Ziyuan and Alderliesten, Tanja and Bosman, Peter AN},
+  journal={Journal of Medical Imaging},
+  volume={7},
+  number={4},
+  pages={046501},
+  year={2020},
+  publisher={SPIE}
+}
 ```
 
 ## Details
